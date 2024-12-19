@@ -10,6 +10,7 @@
  */
 const LOCAL_RELAY_SERVER_URL: string =
   process.env.REACT_APP_LOCAL_RELAY_SERVER_URL || '';
+console.log('LOCAL_RELAY_SERVER_URL', LOCAL_RELAY_SERVER_URL);
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 
@@ -28,7 +29,7 @@ import './ConsolePage.scss';
 import { isJsxOpeningLikeElement } from 'typescript';
 
 /**
- * Type for result from get_weather() function call
+ * Type for result from get_weather() function call，工具函数，用于获取天气信息
  */
 interface Coordinates {
   lat: number;
@@ -45,7 +46,7 @@ interface Coordinates {
 }
 
 /**
- * Type for all event logs
+ * Type for all event logs，日志类型
  */
 interface RealtimeEvent {
   time: string;
@@ -56,7 +57,8 @@ interface RealtimeEvent {
 
 export function ConsolePage() {
   /**
-   * Ask user for API Key
+   * Ask user for API Key，首先，组件会检查是否设置了本地中继服务器 URL。如果没有设置，
+   * 它会从本地存储或用户输入中获取 OpenAI API Key，并将其存储在本地存储中。
    * If we're using the local relay server, we don't need this
    */
   const apiKey = LOCAL_RELAY_SERVER_URL
@@ -73,6 +75,7 @@ export function ConsolePage() {
    * - WavRecorder (speech input)
    * - WavStreamPlayer (speech output)
    * - RealtimeClient (API client)
+   * 音频录制和播放的初始化：组件初始化了两个音频工具，WavRecorder 和 WavStreamPlayer，分别用于音频录制和播放。
    */
   const wavRecorderRef = useRef<WavRecorder>(
     new WavRecorder({ sampleRate: 24000 })
@@ -80,6 +83,7 @@ export function ConsolePage() {
   const wavStreamPlayerRef = useRef<WavStreamPlayer>(
     new WavStreamPlayer({ sampleRate: 24000 })
   );
+  //实时客户端的初始化：组件初始化了一个 RealtimeClient 实例，用于与 OpenAI 的实时 API 进行通信。
   const clientRef = useRef<RealtimeClient>(
     new RealtimeClient(
       LOCAL_RELAY_SERVER_URL
@@ -99,7 +103,7 @@ export function ConsolePage() {
    */
   const clientCanvasRef = useRef<HTMLCanvasElement>(null);
   const serverCanvasRef = useRef<HTMLCanvasElement>(null);
-  const eventsScrollHeightRef = useRef(0);
+  const eventsScrollHeightRef = useRef(0); //用于存储滚动容器（<div>元素）的滚动高度。
   const eventsScrollRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<string>(new Date().toISOString());
 
@@ -109,24 +113,26 @@ export function ConsolePage() {
    * - realtimeEvents are event logs, which can be expanded
    * - memoryKv is for set_memory() function
    * - coords, marker are for get_weather() function
+   * 定义了一些React组件的状态变量，用于管理应用程序的状态。这些状态变量通过React的useState钩子来定义，每个状态变量都有一个初始值和一个更新函数。
    */
-  const [items, setItems] = useState<ItemType[]>([]);
-  const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
+  const [items, setItems] = useState<ItemType[]>([]); //这是一个数组，用于存储所有的对话项（对话内容）。ItemType是这些对话项的类型定义。通过setItems函数可以更新这个数组。
+  const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]); //这是一个数组，用于存储所有的实时事件日志。RealtimeEvent是这些日志项的类型定义。通过setRealtimeEvents函数可以更新这个数组。
   const [expandedEvents, setExpandedEvents] = useState<{
     [key: string]: boolean;
-  }>({});
-  const [isConnected, setIsConnected] = useState(false);
-  const [canPushToTalk, setCanPushToTalk] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
-  const [memoryKv, setMemoryKv] = useState<{ [key: string]: any }>({});
+  }>({}); //这是一个对象，用于存储哪些实时事件日志被展开。通过setExpandedEvents函数可以更新这个对象。
+  const [isConnected, setIsConnected] = useState(false); //这是一个布尔值，表示客户端是否已经连接到服务器。通过setIsConnected函数可以更新这个值。
+  const [canPushToTalk, setCanPushToTalk] = useState(true); //这是一个布尔值，表示是否可以按下推到说话按钮。通过setCanPushToTalk函数可以更新这个值。
+  const [isRecording, setIsRecording] = useState(false); //这是一个布尔值，表示是否正在录制音频。通过setIsRecording函数可以更新这个值。
+  const [memoryKv, setMemoryKv] = useState<{ [key: string]: any }>({}); //这是一个对象，用于存储记忆键值对。通过setMemoryKv函数可以更新这个对象。
   const [coords, setCoords] = useState<Coordinates | null>({
     lat: 37.775593,
     lng: -122.418137,
-  });
-  const [marker, setMarker] = useState<Coordinates | null>(null);
+  }); //这是一个Coordinates类型的对象，用于存储坐标。通过setCoords函数可以更新这个对象。用于攻击函数
+  const [marker, setMarker] = useState<Coordinates | null>(null); //这是一个Coordinates类型的对象，用于存储标记坐标。通过setMarker函数可以更新这个对象。用于攻击函数
 
   /**
    * Utility for formatting the timing of logs
+   * 格式化日志的时间戳
    */
   const formatTime = useCallback((timestamp: string) => {
     const startTime = startTimeRef.current;
@@ -148,6 +154,8 @@ export function ConsolePage() {
 
   /**
    * When you click the API key
+   * 点击API密钥时,会弹出一个提示框，要求输入新的API密钥。如果输入了新的API密钥，会清除本地存储，
+   * 并将新的API密钥保存到本地存储中，然后重新加载页面。
    */
   const resetAPIKey = useCallback(() => {
     const apiKey = prompt('OpenAI API Key');
@@ -161,26 +169,34 @@ export function ConsolePage() {
   /**
    * Connect to conversation:
    * WavRecorder taks speech input, WavStreamPlayer output, client is API client
+   * 连接到对话:，WavRecorder负责语音输入，WavStreamPlayer负责输出，client是API客户端
+   * 该函数使用useCallback钩子进行优化，确保在依赖项不变的情况下不会重新创建函数。这个函数的主要目的是连接到语音对话系统，包括麦克风、音频输出和实时API。下面是对代码的详细解释：
    */
   const connectConversation = useCallback(async () => {
+    //获取引用：首先，通过clientRef、wavRecorderRef和wavStreamPlayerRef获取当前客户端、录音器和音频播放器的引用。
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
     const wavStreamPlayer = wavStreamPlayerRef.current;
 
-    // Set state variables
+    // Set state variables，设置状态变量, 设置状态变量：使用startTimeRef记录当前时间，setIsConnected设置连接状态为true，setRealtimeEvents清空实时事件数组，setItems设置对话项。
     startTimeRef.current = new Date().toISOString();
     setIsConnected(true);
     setRealtimeEvents([]);
     setItems(client.conversation.getItems());
 
-    // Connect to microphone
+    // Connect to microphone,连接麦克风：调用wavRecorder.begin()开始录音
     await wavRecorder.begin();
 
-    // Connect to audio output
+    // Connect to audio output,连接音频输出：调用wavStreamPlayer.connect()连接音频输出。
     await wavStreamPlayer.connect();
 
-    // Connect to realtime API
-    await client.connect();
+    // Connect to realtime API, 连接实时API：尝试调用client.connect()连接到实时API。如果连接失败，捕获错误并打印到控制台。
+    try {
+      await client.connect();
+    } catch (error) {
+      console.error("WebSocket connection failed:", error);
+    }
+    //通过client.sendUserMessageContent发送一条用户消息，内容为Hello!。
     client.sendUserMessageContent([
       {
         type: `input_text`,
@@ -188,7 +204,7 @@ export function ConsolePage() {
         // text: `For testing purposes, I want you to list ten car brands. Number each item, e.g. "one (or whatever number you are one): the item name".`
       },
     ]);
-
+    //如果客户端的语音检测类型为server_vad，则开始记录音频，并将音频数据发送到客户端。
     if (client.getTurnDetectionType() === 'server_vad') {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
@@ -196,6 +212,7 @@ export function ConsolePage() {
 
   /**
    * Disconnect and reset conversation state
+   * 用于断开对话连接和删除对话中的项目
    */
   const disconnectConversation = useCallback(async () => {
     setIsConnected(false);
@@ -218,6 +235,7 @@ export function ConsolePage() {
     await wavStreamPlayer.interrupt();
   }, []);
 
+  //这个函数用于删除对话中的特定项目。它通过调用客户端实例的deleteItem方法来实现。
   const deleteConversationItem = useCallback(async (id: string) => {
     const client = clientRef.current;
     client.deleteItem(id);
@@ -228,20 +246,22 @@ export function ConsolePage() {
    * .appendInputAudio() for each sample
    */
   const startRecording = async () => {
-    setIsRecording(true);
+    setIsRecording(true);  //设置录音状态：调用setIsRecording(true)将录音状态设置为true
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
     const wavStreamPlayer = wavStreamPlayerRef.current;
-    const trackSampleOffset = await wavStreamPlayer.interrupt();
-    if (trackSampleOffset?.trackId) {
+    const trackSampleOffset = await wavStreamPlayer.interrupt(); //中断音频播放：调用wavStreamPlayer.interrupt()中断当前的音频播放，并获取中断后的采样偏移量trackSampleOffset。
+    if (trackSampleOffset?.trackId) { //取消响应：如果trackSampleOffset存在且包含trackId，则调用client.cancelResponse(trackId, offset)取消之前的响应。
       const { trackId, offset } = trackSampleOffset;
       await client.cancelResponse(trackId, offset);
     }
+    //开始录音：调用wavRecorder.record方法开始录音，并在录音时将每个采样数据传递给client.appendInputAudio(data.mono)进行处理
     await wavRecorder.record((data) => client.appendInputAudio(data.mono));
   };
 
   /**
    * In push-to-talk mode, stop recording
+   * 在“按住说话”模式下，停止录音。
    */
   const stopRecording = async () => {
     setIsRecording(false);
@@ -253,30 +273,35 @@ export function ConsolePage() {
 
   /**
    * Switch between Manual <> VAD mode for communication
+   * 用于在手动模式和语音活动检测（VAD）模式之间切换通信方式。
    */
   const changeTurnEndType = async (value: string) => {
-    const client = clientRef.current;
+    const client = clientRef.current; //函数首先通过clientRef.current和wavRecorderRef.current获取当前客户端和音频录制器的引用。
     const wavRecorder = wavRecorderRef.current;
     if (value === 'none' && wavRecorder.getStatus() === 'recording') {
       await wavRecorder.pause();
-    }
+    } //暂停录制：如果切换到'none'模式且音频录制器正在录制，则调用wavRecorder.pause()暂停录制。
     client.updateSession({
       turn_detection: value === 'none' ? null : { type: 'server_vad' },
     });
+    //更新会话：使用client.updateSession方法更新会话配置。如果value是'none'，则将turn_detection设置为null，否则设置为{ type: 'server_vad' }。
     if (value === 'server_vad' && client.isConnected()) {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
+    //开始录制：如果切换到'server_vad'模式且客户端已连接，则调用wavRecorder.record开始录制音频，并将录制的数据通过client.appendInputAudio方法发送到客户端。
     setCanPushToTalk(value === 'none');
+    //更新推送状态：最后，使用setCanPushToTalk函数更新是否可以推送讲话的状态，如果value是'none'，则设置为true，否则设置为false。
   };
 
   /**
    * Auto-scroll the event logs
+   * 使用了React的useEffect钩子来实现在事件日志自动滚动功能。
    */
   useEffect(() => {
     if (eventsScrollRef.current) {
       const eventsEl = eventsScrollRef.current;
       const scrollHeight = eventsEl.scrollHeight;
-      // Only scroll if height has just changed
+      // Only scroll if height has just changed, 如果事件日志的高度发生了变化（即新的日志被添加），则将滚动条自动滚动到底部。
       if (scrollHeight !== eventsScrollHeightRef.current) {
         eventsEl.scrollTop = scrollHeight;
         eventsScrollHeightRef.current = scrollHeight;
@@ -286,11 +311,13 @@ export function ConsolePage() {
 
   /**
    * Auto-scroll the conversation logs
+   * useEffect的第二个参数是一个依赖项数组[items]。这意味着这个useEffect会在items发生变化时执行。items通常是一个状态变量，代表聊天记录列表。
    */
   useEffect(() => {
     const conversationEls = [].slice.call(
       document.body.querySelectorAll('[data-conversation-content]')
     );
+    //滚动到最新消息：遍历这些元素，将每个元素的scrollTop属性设置为scrollHeight，这样就会自动滚动到元素的底部，即最新的聊天记录。
     for (const el of conversationEls) {
       const conversationEl = el as HTMLDivElement;
       conversationEl.scrollTop = conversationEl.scrollHeight;
@@ -299,6 +326,7 @@ export function ConsolePage() {
 
   /**
    * Set up render loops for the visualization canvas
+   * 用于设置可视化画布的渲染循环。它主要用于处理和显示音频数据，通过绘制条形图来展示音频频率
    */
   useEffect(() => {
     let isLoaded = true;
@@ -313,17 +341,21 @@ export function ConsolePage() {
 
     const render = () => {
       if (isLoaded) {
+        //如果clientCanvas存在且宽高未设置，则根据offsetWidth和offsetHeight设置宽高。
         if (clientCanvas) {
           if (!clientCanvas.width || !clientCanvas.height) {
             clientCanvas.width = clientCanvas.offsetWidth;
             clientCanvas.height = clientCanvas.offsetHeight;
           }
+          //获取clientCanvas的2D渲染上下文clientCtx，并清空画布。
           clientCtx = clientCtx || clientCanvas.getContext('2d');
           if (clientCtx) {
             clientCtx.clearRect(0, 0, clientCanvas.width, clientCanvas.height);
+            //调用wavRecorder.getFrequencies('voice')获取音频频率数据，并使用WavRenderer.drawBars绘制条形图。
             const result = wavRecorder.recording
               ? wavRecorder.getFrequencies('voice')
               : { values: new Float32Array([0]) };
+            //对serverCanvas进行类似的处理，但使用wavStreamPlayer.getFrequencies('voice')获取音频频率数据。
             WavRenderer.drawBars(
               clientCanvas,
               clientCtx,
@@ -370,18 +402,19 @@ export function ConsolePage() {
   /**
    * Core RealtimeClient and audio capture setup
    * Set all of our instructions, tools, events and more
+   * useEffect钩子来设置实时客户端和音频捕获的配置。它包括了一系列的初始化步骤，如设置会话、添加工具、处理实时事件等
    */
   useEffect(() => {
     // Get refs
     const wavStreamPlayer = wavStreamPlayerRef.current;
     const client = clientRef.current;
 
-    // Set instructions
+    // Set instructions, 通过updateSession方法更新会话的指令和音频转录模型
     client.updateSession({ instructions: instructions });
     // Set transcription, otherwise we don't get user transcriptions back
     client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
 
-    // Add tools
+    // Add tools, 添加工具，这些工具可以在实时客户端中使用,添加了一个名为set_memory的工具，用于将用户的重要数据保存到内存中。工具的参数包括key和value，它们分别代表内存值的键和值。
     client.addTool(
       {
         name: 'set_memory',
@@ -411,6 +444,7 @@ export function ConsolePage() {
         return { ok: true };
       }
     );
+    //添加了一个名为get_weather的工具，用于获取给定经纬度坐标对的位置的天气信息。工具的参数包括lat（纬度）、lng（经度）和location（位置名称）。
     client.addTool(
       {
         name: 'get_weather',
@@ -454,7 +488,7 @@ export function ConsolePage() {
         return json;
       }
     );
-
+    //这里监听realtime.event事件，并将事件信息保存到状态中。如果连续收到相同类型的事件，则将它们聚合在一起。
     // handle realtime events from client + server for event logging
     client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
       setRealtimeEvents((realtimeEvents) => {
@@ -468,6 +502,7 @@ export function ConsolePage() {
         }
       });
     });
+    //错误处理和会话中断处理,这里监听error事件，并在控制台输出错误信息。同时，监听conversation.interrupted事件，在会话中断时取消响应
     client.on('error', (event: any) => console.error(event));
     client.on('conversation.interrupted', async () => {
       const trackSampleOffset = await wavStreamPlayer.interrupt();
@@ -476,6 +511,8 @@ export function ConsolePage() {
         await client.cancelResponse(trackId, offset);
       }
     });
+    //会话更新处理，这里监听conversation.updated事件，并在会话更新时更新items状态。
+    //如果收到音频数据，则将其添加到wavStreamPlayer中。如果会话完成并且有音频数据，则将其解码并保存到item.formatted.file中。
     client.on('conversation.updated', async ({ item, delta }: any) => {
       const items = client.conversation.getItems();
       if (delta?.audio) {
@@ -493,7 +530,7 @@ export function ConsolePage() {
     });
 
     setItems(client.conversation.getItems());
-
+    //在组件卸载时，重置客户端。
     return () => {
       // cleanup; resets to defaults
       client.reset();
@@ -502,6 +539,8 @@ export function ConsolePage() {
 
   /**
    * Render the application
+   * 这段TypeScript代码定义了一个React组件，用于渲染一个实时控制台页面。这个页面包含多个部分，
+   * 包括API密钥管理、实时事件日志、对话记录、操作按钮以及地图和内存键值对显示。下面是对代码各部分的详细解释：
    */
   return (
     <div data-component="ConsolePage">
@@ -523,6 +562,7 @@ export function ConsolePage() {
         </div>
       </div>
       <div className="content-main">
+        {/* 左侧内容：<div className="content-logs"> 包含实时事件日志和对话记录。 */}
         <div className="content-logs">
           <div className="content-block events">
             <div className="visualization">
@@ -691,6 +731,7 @@ export function ConsolePage() {
             />
           </div>
         </div>
+        {/* 右侧内容：<div className="content-right"> 包含地图和内存键值对显示。 */}
         <div className="content-right">
           <div className="content-block map">
             <div className="content-block-title">get_weather()</div>
